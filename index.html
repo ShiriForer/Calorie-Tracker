@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מעקב קלוריות יומי</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0e17;
+    --surface: #1a1925;
+    --surface2: #252336;
+    --accent: #ff6b6b;
+    --accent2: #ffd93d;
+    --accent3: #6bcb77;
+    --text: #fffffe;
+    --muted: #a7a9be;
+    --border: rgba(255,255,255,0.07);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Heebo', sans-serif; min-height: 100vh; padding: 24px 16px 60px; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; z-index: 0; }
+  .container { max-width: 520px; margin: 0 auto; position: relative; z-index: 1; }
+  header { text-align: center; margin-bottom: 32px; }
+  .date-label { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  h1 { font-size: 28px; font-weight: 900; background: linear-gradient(135deg, #fff 0%, var(--muted) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .ring-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 28px; }
+  .ring-wrap { position: relative; width: 180px; height: 180px; margin-bottom: 12px; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-track { fill: none; stroke: var(--surface2); stroke-width: 14; }
+  .ring-fill { fill: none; stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .ring-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .cal-consumed { font-size: 36px; font-weight: 900; line-height: 1; }
+  .cal-unit { font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+  .cal-remaining { font-size: 14px; font-weight: 700; padding: 6px 18px; border-radius: 100px; background: var(--surface2); }
+  .goal-bar { display: flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: var(--muted); }
+  .goal-bar input { width: 70px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Heebo', sans-serif; font-size: 14px; font-weight: 700; text-align: center; padding: 4px 8px; outline: none; margin-right: auto; }
+  .goal-bar input:focus { border-color: var(--accent); }
+  .api-section { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; margin-bottom: 16px; overflow: hidden; }
+  .api-header { display: flex; align-items: center; gap: 8px; padding: 12px 16px; cursor: pointer; font-size: 13px; color: var(--muted); user-select: none; }
+  .api-header:hover { color: var(--text); }
+  .api-chevron { margin-right: auto; font-size: 10px; transition: transform 0.2s; }
+  .api-chevron.open { transform: rotate(180deg); }
+  .api-body { padding: 0 16px 14px; display: none; }
+  .api-body.open { display: block; }
+  .api-hint { font-size: 12px; color: var(--muted); margin-bottom: 10px; line-height: 1.6; }
+  .api-saved { color: var(--accent3); font-size: 12px; margin-top: 8px; display: none; }
+  .add-section { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px; margin-bottom: 24px; }
+  .add-section h2 { font-size: 14px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 14px; }
+  .input-row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .input-field { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-family: 'Heebo', sans-serif; font-size: 15px; padding: 12px 14px; outline: none; transition: border-color 0.2s; }
+  .input-field:focus { border-color: var(--accent); }
+  .input-field::placeholder { color: var(--muted); }
+  .input-cal { width: 90px; flex: none; text-align: center; }
+  .ai-row { display: flex; gap: 10px; }
+  .btn { border: none; border-radius: 12px; font-family: 'Heebo', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; padding: 12px 20px; transition: transform 0.15s, opacity 0.15s; }
+  .btn:active { transform: scale(0.96); }
+  .btn-primary { background: var(--accent); color: #fff; flex: 1; }
+  .btn-ai { background: var(--surface2); color: var(--accent2); border: 1px solid rgba(255,217,61,0.2); flex: 1; font-size: 13px; }
+  .btn-ai:hover { opacity: 0.85; }
+  .ai-status { font-size: 12px; color: var(--accent2); margin-top: 8px; min-height: 16px; text-align: center; opacity: 0; transition: opacity 0.3s; }
+  .ai-status.visible { opacity: 1; }
+  .meals-section h2 { font-size: 14px; font-weight: 700; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; margin-bottom: 12px; }
+  .meal-list { display: flex; flex-direction: column; gap: 8px; }
+  .meal-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; animation: slideIn 0.3s ease; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  .meal-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .meal-name { flex: 1; font-size: 15px; font-weight: 500; }
+  .meal-time { font-size: 11px; color: var(--muted); }
+  .meal-cal { font-size: 16px; font-weight: 900; margin-right: 4px; }
+  .meal-kcal-label { font-size: 10px; color: var(--muted); }
+  .meal-delete { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; padding: 0 0 0 8px; line-height: 1; opacity: 0.5; transition: opacity 0.2s; }
+  .meal-delete:hover { opacity: 1; color: var(--accent); }
+  .empty-state { text-align: center; color: var(--muted); font-size: 14px; padding: 32px 0; }
+  .reset-btn { display: block; width: 100%; text-align: center; margin-top: 28px; font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; font-family: 'Heebo', sans-serif; opacity: 0.6; transition: opacity 0.2s; }
+  .reset-btn:hover { opacity: 1; color: var(--accent); }
+  .c1 { background: var(--accent); } .c2 { background: var(--accent2); } .c3 { background: var(--accent3); } .c4 { background: #6bc5cb; } .c5 { background: #cb6bcb; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="date-label" id="dateLabel"></div>
+    <h1>מה אכלת היום?</h1>
+  </header>
+
+  <div class="ring-section">
+    <div class="ring-wrap">
+      <svg width="180" height="180" viewBox="0 0 180 180">
+        <circle class="ring-track" cx="90" cy="90" r="76"/>
+        <circle class="ring-fill" id="ringFill" cx="90" cy="90" r="76" stroke-dasharray="477.5" stroke-dashoffset="477.5" stroke="var(--accent3)"/>
+      </svg>
+      <div class="ring-center">
+        <div class="cal-consumed" id="totalCal">0</div>
+        <div class="cal-unit">קלוריות</div>
+      </div>
+    </div>
+    <div class="cal-remaining" id="remainingLabel">נותרו 1200 קק"ל</div>
+  </div>
+
+  <div class="goal-bar">
+    <span>יעד יומי:</span>
+    <input type="number" id="goalInput" value="1200" min="500" max="5000">
+    <span>קק"ל</span>
+  </div>
+
+  <div class="api-section">
+    <div class="api-header" onclick="toggleApiSection()">
+      <span id="apiStatusIcon">🔑</span>
+      <span id="apiStatusText">הגדרת מפתח API לחישוב קלוריות</span>
+      <span class="api-chevron open" id="apiChevron">▼</span>
+    </div>
+    <div class="api-body open" id="apiBody">
+      <p class="api-hint">הזיני את מפתח ה-API שלך מ-platform.anthropic.com<br>הוא יישמר רק בטלפון שלך ולא יועלה לשום מקום.</p>
+      <div class="input-row" style="margin-bottom:0">
+        <input class="input-field" id="apiKeyInput" type="password" placeholder="sk-ant-...">
+        <button class="btn btn-primary" style="flex:none;padding:12px 16px" onclick="saveApiKey()">שמור</button>
+      </div>
+      <div class="api-saved" id="apiSaved">✅ מפתח נשמר!</div>
+    </div>
+  </div>
+
+  <div class="add-section">
+    <h2>➕ הוספת אוכל</h2>
+    <div class="input-row">
+      <input class="input-field" id="foodName" type="text" placeholder="מה אכלת? (לדוגמה: שקדים 30 גרם)">
+    </div>
+    <div class="input-row">
+      <input class="input-field input-cal" id="foodCal" type="number" placeholder="קלוריות" min="1">
+      <button class="btn btn-primary" onclick="addManual()">הוספה</button>
+    </div>
+    <div class="ai-row">
+      <button class="btn btn-ai" onclick="estimateWithAI()">✨ חשב עם AI</button>
+      <button class="btn btn-ai" onclick="document.getElementById('imgInput').click()" style="color:#6bcb77;border-color:rgba(107,203,119,0.25)">📷 העלי תמונה</button>
+    </div>
+    <input type="file" id="imgInput" accept="image/*" capture="environment" style="display:none" onchange="handleImage(event)">
+    <div id="imagePreview" style="display:none;margin-top:12px;border-radius:12px;overflow:hidden;max-height:180px;">
+      <img id="previewImg" style="width:100%;object-fit:cover;max-height:180px;display:block;">
+    </div>
+    <div class="ai-status" id="aiStatus"></div>
+  </div>
+
+  <div class="meals-section">
+    <h2>📋 מה אכלת</h2>
+    <div class="meal-list" id="mealList"></div>
+  </div>
+
+  <button class="reset-btn" onclick="resetDay()">🔄 איפוס יום חדש</button>
+</div>
+
+<script>
+const STORAGE_KEY = 'calorie_tracker_v1';
+const API_KEY_STORAGE = 'cal_tracker_api_key';
+const COLORS = ['c1','c2','c3','c4','c5'];
+const CAL_COLORS = ['var(--accent)','var(--accent2)','var(--accent3)','#6bc5cb','#cb6bcb'];
+let state = loadState();
+
+function loadState() {
+  const today = new Date().toDateString();
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    if (saved.date === today) return saved;
+  } catch(e) {}
+  return { date: today, goal: 1200, meals: [] };
+}
+function saveState() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function getApiKey() { return localStorage.getItem(API_KEY_STORAGE) || ''; }
+
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (!key.startsWith('sk-')) { alert('מפתח לא תקין — חייב להתחיל ב-sk-'); return; }
+  localStorage.setItem(API_KEY_STORAGE, key);
+  document.getElementById('apiSaved').style.display = 'block';
+  document.getElementById('apiKeyInput').value = '';
+  updateApiSectionUI();
+  setTimeout(() => toggleApiSection(true), 1000);
+}
+
+function toggleApiSection(forceClose) {
+  const body = document.getElementById('apiBody');
+  const chevron = document.getElementById('apiChevron');
+  if (forceClose || body.classList.contains('open')) {
+    body.classList.remove('open'); chevron.classList.remove('open');
+  } else {
+    body.classList.add('open'); chevron.classList.add('open');
+  }
+}
+
+function updateApiSectionUI() {
+  const key = getApiKey();
+  document.getElementById('apiStatusIcon').textContent = key ? '✅' : '🔑';
+  document.getElementById('apiStatusText').textContent = key ? 'מפתח API מוגדר' : 'הגדרת מפתח API לחישוב קלוריות';
+  if (!key) { document.getElementById('apiBody').classList.add('open'); document.getElementById('apiChevron').classList.add('open'); }
+}
+
+function renderDate() {
+  document.getElementById('dateLabel').textContent = new Date().toLocaleDateString('he-IL', { weekday:'long', day:'numeric', month:'long' });
+}
+function renderGoal() { document.getElementById('goalInput').value = state.goal; }
+function renderRing() {
+  const total = state.meals.reduce((s,m) => s + m.cal, 0);
+  const pct = Math.min(total / state.goal, 1);
+  document.getElementById('totalCal').textContent = total.toLocaleString();
+  document.getElementById('ringFill').style.strokeDashoffset = 477.5 - pct * 477.5;
+  document.getElementById('ringFill').style.stroke = pct >= 1 ? 'var(--accent)' : pct >= 0.75 ? 'var(--accent2)' : 'var(--accent3)';
+  const rem = state.goal - total;
+  const label = document.getElementById('remainingLabel');
+  label.textContent = rem > 0 ? `נותרו ${rem.toLocaleString()} קק"ל` : `חרגת ב-${Math.abs(rem).toLocaleString()} קק"ל`;
+  label.style.color = rem > 0 ? 'var(--text)' : 'var(--accent)';
+}
+function renderMeals() {
+  const list = document.getElementById('mealList');
+  if (!state.meals.length) { list.innerHTML = '<div class="empty-state">עדיין לא הוספת ארוחות היום ✨</div>'; return; }
+  list.innerHTML = state.meals.slice().reverse().map((m, i) => {
+    const ci = (state.meals.length - 1 - i) % COLORS.length;
+    return `<div class="meal-item">
+      <div class="meal-dot ${COLORS[ci]}"></div>
+      <div class="meal-name">${m.name.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+      <div class="meal-time">${new Date(m.ts).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})}</div>
+      <div><span class="meal-cal" style="color:${CAL_COLORS[ci]}">${m.cal}</span><span class="meal-kcal-label"> קק"ל</span></div>
+      <button class="meal-delete" onclick="deleteMeal(${state.meals.length-1-i})">×</button>
+    </div>`;
+  }).join('');
+}
+function render() { renderDate(); renderGoal(); renderRing(); renderMeals(); updateApiSectionUI(); }
+
+function addManual() {
+  const name = document.getElementById('foodName').value.trim();
+  const cal = parseInt(document.getElementById('foodCal').value);
+  if (!name) { alert('אנא הזיני שם מזון'); return; }
+  if (!cal || cal < 1) { alert('אנא הזיני מספר קלוריות תקין'); return; }
+  addMeal(name, cal);
+}
+function addMeal(name, cal) {
+  state.meals.push({ name, cal, ts: Date.now() });
+  saveState();
+  document.getElementById('foodName').value = '';
+  document.getElementById('foodCal').value = '';
+  document.getElementById('imagePreview').style.display = 'none';
+  document.getElementById('aiStatus').classList.remove('visible');
+  render();
+}
+function deleteMeal(idx) { state.meals.splice(idx, 1); saveState(); render(); }
+function resetDay() { if (!confirm('לאפס את כל נתוני היום?')) return; state.meals = []; saveState(); render(); }
+
+document.getElementById('goalInput').addEventListener('change', function() {
+  const v = parseInt(this.value);
+  if (v >= 500 && v <= 5000) { state.goal = v; saveState(); render(); }
+});
+document.getElementById('foodName').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { document.getElementById('foodCal').value ? addManual() : estimateWithAI(); }
+});
+
+function checkApiKey() {
+  const key = getApiKey();
+  if (!key) {
+    alert('קודם הגדירי מפתח API בתיבה למעלה');
+    document.getElementById('apiBody').classList.add('open');
+    document.getElementById('apiChevron').classList.add('open');
+    return null;
+  }
+  return key;
+}
+
+async function callAI(messages, maxTokens, system) {
+  const apiKey = checkApiKey();
+  if (!apiKey) return null;
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: maxTokens, system, messages })
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message);
+  return JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());
+}
+
+async function estimateWithAI() {
+  const name = document.getElementById('foodName').value.trim();
+  if (!name) { alert('אנא כתבי מה אכלת'); return; }
+  if (!getApiKey()) { checkApiKey(); return; }
+  const statusEl = document.getElementById('aiStatus');
+  statusEl.textContent = '⏳ מחשב קלוריות...';
+  statusEl.classList.add('visible');
+  try {
+    const parsed = await callAI(
+      [{ role: "user", content: name }], 100,
+      'You are a calorie estimation assistant. When given a food item (possibly in Hebrew), respond ONLY with a JSON object: {"calories": <number>, "name": "<food name in Hebrew>"}. Estimate realistic calories. No other text.'
+    );
+    document.getElementById('foodCal').value = parsed.calories;
+    if (parsed.name) document.getElementById('foodName').value = parsed.name;
+    statusEl.textContent = `✅ הערכה: ${parsed.calories} קק"ל — לחצי "הוספה" לאישור`;
+  } catch(e) {
+    statusEl.textContent = '❌ שגיאה — בדקי שהמפתח תקין';
+  }
+}
+
+async function handleImage(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!getApiKey()) { checkApiKey(); return; }
+
+  const r0 = new FileReader();
+  r0.onload = e => { document.getElementById('previewImg').src = e.target.result; document.getElementById('imagePreview').style.display = 'block'; };
+  r0.readAsDataURL(file);
+
+  const statusEl = document.getElementById('aiStatus');
+  statusEl.textContent = '⏳ מזהה אוכל בתמונה...';
+  statusEl.classList.add('visible');
+
+  try {
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = () => rej(new Error('fail'));
+      r.readAsDataURL(file);
+    });
+    const apiKey = getApiKey();
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001", max_tokens: 200,
+        system: 'You are a calorie estimation assistant. When given an image of food, identify food items and estimate total calories. Respond ONLY with JSON: {"calories": <number>, "name": "<description in Hebrew>"}. No other text.',
+        messages: [{ role: "user", content: [
+          { type: "image", source: { type: "base64", media_type: file.type || "image/jpeg", data: base64 } },
+          { type: "text", text: "זהי את האוכל בתמונה והעריכי קלוריות." }
+        ]}]
+      })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const parsed = JSON.parse(data.content[0].text.replace(/```json|```/g,'').trim());
+    document.getElementById('foodName').value = parsed.name;
+    document.getElementById('foodCal').value = parsed.calories;
+    statusEl.textContent = `✅ זיהיתי: ${parsed.name} — ${parsed.calories} קק"ל — לחצי "הוספה" לאישור`;
+  } catch(e) {
+    statusEl.textContent = '❌ לא הצלחתי לזהות — הזיני ידנית';
+  }
+  event.target.value = '';
+}
+
+render();
+</script>
+</body>
+</html>
